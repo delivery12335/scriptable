@@ -1,6 +1,6 @@
 // Paste this entire file into a Scriptable script named CEITI.
 const CONFIG = {
-  serverUrl: "https://МОЙ-СЕРВЕР",
+  serverUrl: "https://ceiti-scriptable.onrender.com",
   group: "P-2434R",
   subgroup: 1,
   lessonNotificationMinutes: 10,
