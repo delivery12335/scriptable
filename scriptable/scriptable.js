@@ -78,13 +78,28 @@ async function main() {
   if (![1, 2].includes(CONFIG.subgroup)) throw new Error("subgroup must be 1 or 2");
   const url = CONFIG.serverUrl.replace(/\/$/, "") + "/api/schedule/plan?group=" + encodeURIComponent(CONFIG.group)
     + "&subgroup=" + CONFIG.subgroup + "&summary_hour=" + CONFIG.tomorrowSummaryHour + "&summary_minute=" + CONFIG.tomorrowSummaryMinute;
-  const request = new Request(url);
-  request.timeoutInterval = 45;
-  const plan = await request.loadJSON();
-  if (!request.response || request.response.statusCode !== 200) throw new Error("Server error: " + JSON.stringify(plan));
+  const plan = await loadPlan(url);
   const count = await syncNotifications(plan, CONFIG, Notification);
   console.log(`CEITI: запланировано ${count} уведомлений. Обновлено: ${plan.generated_at}`);
   Script.complete();
+}
+
+async function loadPlan(url) {
+  let lastError;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const request = new Request(url);
+      request.timeoutInterval = 60;
+      const plan = await request.loadJSON();
+      if (!request.response || request.response.statusCode !== 200)
+        throw new Error("Server unavailable: " + (request.response?.statusCode || "network"));
+      return plan;
+    } catch (error) {
+      lastError = error;
+      console.warn(`CEITI: попытка ${attempt}/3 не удалась: ${error}`);
+    }
+  }
+  throw lastError;
 }
 
 // Node export is only for automated tests; Scriptable executes the same functions.
