@@ -4,6 +4,7 @@ const CONFIG = {
   group: "P-2434R",
   subgroup: 1,
   lessonNotificationMinutes: 10,
+  beforePreviousLessonEndMinutes: 5,
   endOfDayNotificationMinutes: 15,
   tomorrowSummaryHour: 19,
   tomorrowSummaryMinute: 40,
@@ -34,10 +35,18 @@ function buildNotifications(plan, settings, now = new Date()) {
       if (!slots.has(key)) slots.set(key, []);
       slots.get(key).push(lesson);
     }
-    for (const [number, lessons] of slots) {
+    const orderedSlots = [...slots.entries()].sort((a, b) =>
+      Math.min(...a[1].map(l => Date.parse(l.start_at))) - Math.min(...b[1].map(l => Date.parse(l.start_at))));
+    for (let index = 0; index < orderedSlots.length; index++) {
+      const [number, lessons] = orderedSlots[index];
       const body = lessons.map(l => `${number}-я пара — ${l.subject}${l.room ? ", каб. " + l.room : ""}${l.teacher ? ",\n" + l.teacher : ""}`).join("\n");
       const start = Math.min(...lessons.map(l => Date.parse(l.start_at)));
-      add(`${day.date}_lesson_${number}`, "Следующая пара", body, start - settings.lessonNotificationMinutes * 60000);
+      // Notify before the previous actual lesson ends, including long breaks and gaps.
+      const trigger = index === 0
+        ? start - settings.lessonNotificationMinutes * 60000
+        : Math.max(...orderedSlots[index - 1][1].map(l => Date.parse(l.end_at)))
+          - (settings.beforePreviousLessonEndMinutes ?? 5) * 60000;
+      add(`${day.date}_lesson_${number}`, "Следующая пара", body, trigger);
     }
     if (day.lessons.length) {
       const end = Math.max(...day.lessons.map(l => Date.parse(l.end_at)));
